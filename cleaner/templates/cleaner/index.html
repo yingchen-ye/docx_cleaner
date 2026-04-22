@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DocX English Remover</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+      padding: 40px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    h1 {
+      font-size: 22px;
+      color: #1a1a1a;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      color: #777;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    .drop-zone {
+      border: 2px dashed #d0d0d0;
+      border-radius: 10px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fafafa;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #4f46e5;
+      background: #f0f0ff;
+    }
+
+    .drop-zone .icon { font-size: 36px; margin-bottom: 10px; }
+
+    .drop-zone p {
+      color: #555;
+      font-size: 14px;
+    }
+
+    .drop-zone span {
+      color: #4f46e5;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #file-input { display: none; }
+
+    #file-name {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #4f46e5;
+      font-weight: 500;
+      min-height: 18px;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      margin-top: 24px;
+      padding: 14px;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover { background: #4338ca; }
+    .btn:disabled { background: #a5b4fc; cursor: not-allowed; }
+
+    .status {
+      margin-top: 18px;
+      font-size: 13px;
+      text-align: center;
+      min-height: 20px;
+    }
+
+    .status.error { color: #dc2626; }
+    .status.success { color: #16a34a; }
+    .status.loading { color: #6b7280; }
+
+    .note {
+      margin-top: 24px;
+      padding: 12px 14px;
+      background: #fefce8;
+      border-left: 3px solid #eab308;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #713f12;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🧹 English Paragraph Remover</h1>
+    <p class="subtitle">Upload a .docx file and download it with all English paragraphs removed.</p>
+
+    <div class="drop-zone" id="drop-zone">
+      <div class="icon">📄</div>
+      <p>Drag & drop your <strong>.docx</strong> file here<br>or <span id="browse-btn">browse to upload</span></p>
+      <input type="file" id="file-input" accept=".docx" />
+    </div>
+    <div id="file-name"></div>
+
+    <button class="btn" id="submit-btn" disabled>Remove English Paragraphs</button>
+    <div class="status" id="status"></div>
+
+    <div class="note">
+      ⚠️ Short paragraphs under ~20 characters (e.g. "Ah!") cannot be reliably detected and will be <strong>kept</strong> to be safe.
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const browseBtn = document.getElementById('browse-btn');
+    const submitBtn = document.getElementById('submit-btn');
+    const fileNameEl = document.getElementById('file-name');
+    const statusEl = document.getElementById('status');
+
+    let selectedFile = null;
+
+    browseBtn.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) setFile(fileInput.files[0]);
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith('.docx')) {
+        setFile(file);
+      } else {
+        showStatus('Please upload a .docx file.', 'error');
+      }
+    });
+
+    function setFile(file) {
+      selectedFile = file;
+      fileNameEl.textContent = `✅ ${file.name}`;
+      submitBtn.disabled = false;
+      statusEl.textContent = '';
+    }
+
+    function showStatus(msg, type) {
+      statusEl.textContent = msg;
+      statusEl.className = `status ${type}`;
+    }
+
+    submitBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      submitBtn.disabled = true;
+      showStatus('Processing your file...', 'loading');
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      try {
+        const response = await fetch('/upload/', {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          showStatus(`Error: ${err.error}`, 'error');
+          submitBtn.disabled = false;
+          return;
+        }
+
+        // Trigger download
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const disposition = response.headers.get('Content-Disposition');
+        const filename = disposition?.match(/filename="(.+)"/)?.[1] || 'cleaned.docx';
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showStatus('✅ Done! Your cleaned file has been downloaded.', 'success');
+      } catch (err) {
+        showStatus(`Unexpected error: ${err.message}`, 'error');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+  </script>
+</body>
+</html>
