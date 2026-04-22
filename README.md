@@ -30,7 +30,3 @@ Go to: http://127.0.0.1:8000
 - English paragraphs are removed
 - Short paragraphs under ~20 characters are kept (too short to detect reliably)
 - Download the cleaned file
-
-## Notes
-- Short snippets like "Ah!" cannot be reliably language-detected and are kept by default
-- Paragraph structure is preserved (empty paragraphs remain as blank lines)
