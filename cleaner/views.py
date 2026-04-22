@@ -1,52 +1,64 @@
 import io
+import re
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.utils.http import content_disposition_header
 from docx import Document
-from langdetect import detect, LangDetectException
 
+HAN_RE = re.compile(r'[\u4e00-\u9fff]')
+LATIN_RE = re.compile(r'[A-Za-z]')
 
-def is_english(text):
+def classify_paragraph(text: str):
     """
-    Returns True if the text is detected as English.
-    Short texts (under 20 chars) are skipped — cannot be reliably detected.
-    Returns None for short/ambiguous text so the caller can decide what to do.
+    Classify a paragraph for bilingual EN/ZH documents.
+
+    Returns:
+      - 'zh' if it contains Chinese characters
+      - 'en' if it has no Chinese chars but contains enough Latin letters
+      - 'other' otherwise
     """
     text = text.strip()
     if not text:
-        return False
-    if len(text) < 40:
-        # Too short to detect reliably — return None (ambiguous)
-        return None
-    try:
-        return detect(text) == 'en'
-    except LangDetectException:
-        return None
+        return 'other'
+
+    # Keep anything containing Chinese
+    if HAN_RE.search(text):
+        return 'zh'
+
+    # If it has Latin letters and no Chinese, treat it as English
+    if LATIN_RE.search(text):
+        return 'en'
+
+    return 'other'
+
+def delete_paragraph(paragraph):
+    """
+    Remove a paragraph entirely from the document XML.
+    """
+    p = paragraph._element
+    parent = p.getparent()
+    if parent is not None:
+        parent.remove(p)
 
 
 def remove_english_paragraphs(doc):
     """
-    Removes paragraphs detected as English from a Document object.
-    Short/ambiguous paragraphs are kept by default.
-    Returns (cleaned_doc, stats) where stats is a dict with counts.
+    Remove English paragraphs from a bilingual EN/ZH .docx.
+    Keeps Chinese and unknown paragraphs.
     """
-    stats = {'total': 0, 'removed': 0, 'kept': 0, 'ambiguous': 0}
+    paragraphs = list(doc.paragraphs)
 
-    for para in doc.paragraphs:
-        stats['total'] += 1
+    stats = {'total': len(paragraphs), 'removed': 0, 'kept': 0}
+
+    # Iterate over a copy because we are deleting from the document
+    for para in paragraphs:
         text = para.text.strip()
+        kind = classify_paragraph(text)
 
-        result = is_english(text)
-
-        if result is True:
-            # Clear the paragraph content but keep the paragraph node
-            # (removing nodes entirely can break document structure)
-            for run in para.runs:
-                run.text = ''
+        if kind == 'en':
+            delete_paragraph(para)
             stats['removed'] += 1
-        elif result is None:
-            stats['ambiguous'] += 1
-            stats['kept'] += 1
         else:
             stats['kept'] += 1
 
@@ -71,19 +83,15 @@ def upload(request):
         return JsonResponse({'error': 'Only .docx files are supported'}, status=400)
 
     try:
-        # Read the uploaded file into memory
         file_bytes = uploaded_file.read()
         doc = Document(io.BytesIO(file_bytes))
 
-        # Process the document
         cleaned_doc, stats = remove_english_paragraphs(doc)
 
-        # Save to a BytesIO buffer
         output = io.BytesIO()
         cleaned_doc.save(output)
         output.seek(0)
 
-        # Return the cleaned file as a download
         original_name = uploaded_file.name.rsplit('.', 1)[0]
         download_name = f"{original_name}_cleaned.docx"
 
@@ -91,8 +99,9 @@ def upload(request):
             output.read(),
             content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
-        response['Content-Disposition'] = f'attachment; filename="{download_name}"'
-        response['X-Stats'] = str(stats)  # Optional: pass stats in header
+        response['Content-Disposition'] = content_disposition_header(True, download_name)
+        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        response['X-Stats'] = str(stats)
         return response
 
     except Exception as e:
