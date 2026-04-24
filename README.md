@@ -4,11 +4,14 @@ A Django web app that removes English paragraphs from `.docx` files.
 
 ## Local Setup
 
-### 1. Create a virtual environment
+### 1. Create a virtual environment or conda env
 ```bash
 python -m venv venv
 source venv/bin/activate        # Mac/Linux
 venv\Scripts\activate           # Windows
+
+conda create -n docx_cleaner python=3.11
+conda activate docx_cleaner
 ```
 
 ### 2. Install dependencies
