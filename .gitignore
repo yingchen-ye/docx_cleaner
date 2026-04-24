@@ -1,2 +1,3 @@
 *.DS_Store
 cleaner/__pycache__/
+docx_cleaner/__pycache__/*
