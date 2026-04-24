@@ -1,0 +1,70 @@
+exclude: ^src/(document_library/metadata_ingestion\.py|external_prices/.*|external_production/.*|sustainability/.*|.*test.*)
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v3.4.0
+  hooks:
+    - id: trailing-whitespace
+    - id: check-added-large-files
+    - id: check-json
+    - id: check-ast
+      # exclude: ^src/(document_library/metadata_ingestion\.py|external_prices/.*|external_production/.*|sustainability/.*)
+    - id: check-merge-conflict
+    - id: check-yaml
+      args: [--unsafe]
+    - id: debug-statements
+      # exclude: ^src/(document_library/metadata_ingestion\.py|external_prices/.*|external_production/.*|sustainability/.*)
+    - id: end-of-file-fixer
+
+- repo: https://github.com/ambv/black
+  rev: 22.3.0
+  hooks:
+    - id: black
+      # exclude: ^src/(document_library/metadata_ingestion\.py|external_prices/.*|external_production/.*|sustainability/.*)
+      name: Run black formatter
+      language_version: python3.11
+      args:
+        - --line-length=79
+- repo: https://github.com/PyCQA/autoflake.git
+  rev: v2.3.1
+  hooks:
+    - id: autoflake
+      args: ['--in-place', '--remove-all-unused-imports']
+- repo: https://github.com/pycqa/flake8
+  rev: 7.1.1
+  hooks:
+    - id: flake8
+      # exclude: ^src/(document_library/metadata_ingestion\.py|external_prices/.*|external_production/.*|coupa/ingestion.py|sustainability/.*|.*test.*)
+      name: Run flake8 linter
+      additional_dependencies: ["flake8-bugbear==24.10.31", "pep8-naming==0.14.1"]
+      args: ['--ignore', 'N803,N806,N818,W503,B101,B036,E226,F403,F405', '--builtins', 'dbutils,spark,sc', '--max-line-length', '150']
+- repo: https://github.com/timothycrosley/isort
+  rev: 5.11.5
+  hooks:
+    - id: isort
+      name: Sort imports using isort
+      exclude: ^src/coupa/ingestion.py
+      args:
+        - --profile
+        - black
+- repo: https://github.com/asottile/pyupgrade
+  rev: v3.19.1
+  hooks:
+    - id: pyupgrade
+      name: Check for code that can use new Python features
+      args: [--py38-plus]
+# - repo: https://github.com/Lucas-C/pre-commit-hooks-bandit
+#   rev: v1.0.4
+#   hooks:
+#     - id: python-bandit-vulnerability-check
+#       args: [-l, --recursive, -x, tests, -s, B101]
+#       name: Check for vulnerabilities in code with bandit
+#       files: .py$
+# - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+#   rev: v1.4.0
+#   hooks:
+#     - id: python-safety-dependencies-check
+#       name: Check for vulnerable dependencies
+- repo: https://github.com/detailyang/pre-commit-shell
+  rev: 1.0.5
+  hooks:
+    - id: shell-lint
