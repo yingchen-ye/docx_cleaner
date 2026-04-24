@@ -21,7 +21,7 @@ repos:
     - id: black
       # exclude: ^src/(document_library/metadata_ingestion\.py|external_prices/.*|external_production/.*|sustainability/.*)
       name: Run black formatter
-      language_version: python3.9
+      language_version: python3.11
       args:
         - --line-length=79
 - repo: https://github.com/PyCQA/autoflake.git
